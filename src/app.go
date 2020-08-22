@@ -11,7 +11,9 @@ import (
 	"io/ioutil"
 	"os"
 	"bytes"
+	"time"
 	"io"
+	"strconv"
 )
 
 func main() {
@@ -35,6 +37,14 @@ func logOutput(request *http.Request, message string) {
 	fmt.Println(ip, request.Method, request.URL, message)
 }
 
+func getEnvInt64(name string, defVal int64) int64 {
+	if valueStr, exists := os.LookupEnv(name); exists {
+		value, _ := strconv.ParseInt(valueStr, 10, 64)
+		return value
+	}
+	return defVal
+}
+
 func requestHandler(response http.ResponseWriter, request *http.Request) {
 	if request.URL.Path != "/" {
 		response.WriteHeader(http.StatusNotFound)
@@ -47,7 +57,7 @@ func requestHandler(response http.ResponseWriter, request *http.Request) {
 		logOutput(request, "405 not allowed")
 		return
 	}
-	decoder := json.NewDecoder(request.Body)
+	decoder := json.NewDecoder(http.MaxBytesReader(response, request.Body, getEnvInt64("APP_MAX_BODY_SIZE", 2000000)))
 	var req documentRequest
 	if err := decoder.Decode(&req); err != nil {
 		response.WriteHeader(http.StatusBadRequest)
@@ -101,7 +111,11 @@ func requestHandler(response http.ResponseWriter, request *http.Request) {
 	cmd := exec.Command(programFile, segments...)
 	cmd.Stdout = &buf
 	cmd.Start()
+	timer := time.AfterFunc(time.Duration(getEnvInt64("APP_PROC_TIMEOUT", 60)) * time.Second, func() {
+		cmd.Process.Kill()
+	})
 	err := cmd.Wait()
+	timer.Stop()
 	if err != nil {
 		fmt.Println("\tProcess error:", err)
 		response.WriteHeader(http.StatusInternalServerError)
