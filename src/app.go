@@ -10,6 +10,7 @@ import (
 	"strings"
 	"io/ioutil"
 	"os"
+	"bytes"
 	"io"
 )
 
@@ -95,12 +96,18 @@ func requestHandler(response http.ResponseWriter, request *http.Request) {
 	io.Copy(file, b64decoder)
 	file.Close()
 	segments = append(segments, file.Name(), "-")
+	var buf bytes.Buffer
 	fmt.Println("\tRunning:", programFile, strings.Join(segments, " "))
 	cmd := exec.Command(programFile, segments...)
-	response.Header().Set("Content-Type", contentType)
-	cmd.Stdout = response
+	cmd.Stdout = &buf
 	cmd.Start()
-	defer cmd.Wait()
-	// TODO: check if Stderr has anything, and issue http 500 instead.
+	err := cmd.Wait()
+	if err != nil {
+		fmt.Println("\tProcess error:", err)
+		response.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	response.Header().Set("Content-Type", contentType)
+	buf.WriteTo(response)
 	logOutput(request, "200 OK")
 }
