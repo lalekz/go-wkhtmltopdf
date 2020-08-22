@@ -2,11 +2,15 @@ package main
 
 import (
 	"encoding/json"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"strings"
+	"io/ioutil"
+	"os"
+	"io"
 )
 
 func main() {
@@ -17,8 +21,7 @@ func main() {
 }
 
 type documentRequest struct {
-	Url    string
-	Urls   []string
+	Contents string
 	Output string
 	// TODO: whitelist options that can be passed to avoid errors,
 	// log warning when different options get passed
@@ -80,14 +83,18 @@ func requestHandler(response http.ResponseWriter, request *http.Request) {
 		programFile = "/bin/wkhtmltopdf"
 		contentType = "application/pdf"
 	}
-	if req.Url != "" {
-		segments = append(segments, req.Url, "-")
-	} else if len(req.Urls) > 0 {
-		for _, url := range req.Urls {
-			segments = append(segments, url)
-		}
-		segments = append(segments, "-")
+	fmt.Println("\tContents size:", len(req.Contents))
+	if len(req.Contents) == 0 {
+		response.WriteHeader(http.StatusBadRequest)
+		logOutput(request, "400 bad request (invalid JSON)")
+		return
 	}
+	file, _ := ioutil.TempFile("/tmp", "*.html")
+	defer os.Remove(file.Name())
+	b64decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(req.Contents))
+	io.Copy(file, b64decoder)
+	file.Close()
+	segments = append(segments, file.Name(), "-")
 	fmt.Println("\tRunning:", programFile, strings.Join(segments, " "))
 	cmd := exec.Command(programFile, segments...)
 	response.Header().Set("Content-Type", contentType)

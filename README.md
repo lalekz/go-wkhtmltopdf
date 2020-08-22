@@ -7,13 +7,13 @@ A dockerized webservice written in [Go](https://golang.org/) that uses [wkhtmlto
 ### build
 
 ```
-docker build -t jayknoxqu/go-wkhtmltopdf:alpine3.8 .
+docker build -t lalekz/go-wkhtmltopdf:alpine3.10 .
 ```
 
 ### run
 
 ```
-docker run -d --name go-wkhtmltopdf -p 8080:80 jayknoxqu/go-wkhtmltopdf:alpine3.8
+docker run -d --name go-wkhtmltopdf -p 8080:80 lalekz/go-wkhtmltopdf:alpine3.10
 ```
 
 
@@ -24,65 +24,48 @@ The service listens on port 80 for POST requests on the root path (`/`). Any oth
 
 The body should contain a JSON-encoded object containing the following parameters:
 
-- **url**: The URL of the page to convert.
+- **contents**: Base64-encoded HTML page contents to convert.
 - **output**: The type of document to generate, can be either `jpg`, `png` or `pdf`. Defauts to `pdf` if not specified. Depending on the output type the appropriate binary is called.
 - **options**: A list of key-value arguments that are passed on to the appropriate `wkhtmltopdf` binary. Boolean values are interpreted as flag arguments (e.g.: `--greyscale`).
 - **cookies**: A list of key-value arguments that are passed on to the appropriate `wkhtmltopdf` binary as separate `cookie` arguments.
 
-**Example:** posting the following JSON:
+**Example:** posting HTML file using python requests:
 
-```
-{
-  "url": "http://www.google.com",
-  "options": {
-    "margin-bottom": "1cm",
-    "orientation": "Landscape"
+```python
+import json
+import requests
+
+url = 'http://<docker_host>:<port>/'
+data = {
+  'contents': open('/file/to/convert.html').read().encode('base64'),
+  'options': {
+    'margin-bottom': '1cm',
+    'orientation': 'Landscape'
   },
-  "cookies": {
-    "foo": "bar",
-    "baz": "foo"
+  'cookies': {
+    'foo': 'bar',
+    'baz': 'foo'
   },
-  "output":"pdf"
+  'output':'pdf'
+
 }
+
+response = requests.post(url, data=json.dumps(data), headers=headers)
+
+# Save the response contents to a file
+with open('/path/to/local/file.pdf', 'wb') as f:
+    f.write(response.content)
 ```
 
 will have the effect of the following command-line being executed on the server:
 
 ```
-/usr/local/bin/wkhtmltopdf --margin-bottom 1cm --orientation Landscape --cookie foo bar --cookie baz foo http://www.google.com -
+/usr/local/bin/wkhtmltopdf --margin-bottom 1cm --orientation Landscape --cookie foo bar --cookie baz foo /tmp/238084854.html -
 ```
 
 The `-` at the end of the command-line is so that the document contents are redirected to stdout so we can in turn redirect it to the web server's response stream.
 
 When using `jpg` or `png` output, the set of options you can pass are actually more limited. Please check [wkhtmltopdf usage docs](http://wkhtmltopdf.org/docs.html) or rather just use `wkhtmltopdf --help` or `wkhtmltoimage --help` to get help on the available command-line arguments.
-
-
-
-### multiple urls
-
-- support for multiple urls combined in one PDF
-
-**Example:** 
-
-```
-{
-  "urls": {
-    "http://www.google.com",
-    "http://www.reddit.com",
-  },
-  "options": {
-    "margin-bottom": "1cm",
-    "orientation": "Landscape",
-    "grayscale": true
-  },
-  "cookies": {
-    "foo": "bar",
-    "baz": "foo"
-  }
-}
-```
-
-
 
 ## reference
 
