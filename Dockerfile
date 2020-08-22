@@ -1,18 +1,18 @@
 # builder image
-FROM surnet/alpine-wkhtmltopdf:3.8-0.12.5-full as builder
+FROM surnet/alpine-wkhtmltopdf:3.10-0.12.6-full as builder
 
 # Image
-FROM golang:1.11-alpine3.8
+FROM golang:1.11-alpine3.10
 
 # Install needed packages
-RUN  echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.8/main" > /etc/apk/repositories \
-     && echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.8/community" >> /etc/apk/repositories \
+RUN  echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.10/main" > /etc/apk/repositories \
+     && echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.10/community" >> /etc/apk/repositories \
      && apk update && apk add --no-cache \
       libstdc++ \
       libx11 \
       libxrender \
       libxext \
-      libssl1.0 \
+      libssl1.1 \
       ca-certificates \
       fontconfig \
       freetype \
@@ -38,9 +38,9 @@ COPY --from=builder /bin/wkhtmltoimage /bin/wkhtmltoimage
 
 WORKDIR /go/src/app
 
-COPY src/* .
-
 COPY fonts/* /usr/share/fonts
+
+COPY src/* .
 
 RUN go get -d -v ./... && go install -v ./...
 
