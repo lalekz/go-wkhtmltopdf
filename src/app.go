@@ -26,6 +26,7 @@ func main() {
 type documentRequest struct {
 	Contents string
 	Output string
+	UploadUrl string `json:"upload_url"`
 	// TODO: whitelist options that can be passed to avoid errors,
 	// log warning when different options get passed
 	Options map[string]interface{}
@@ -121,7 +122,20 @@ func requestHandler(response http.ResponseWriter, request *http.Request) {
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	response.Header().Set("Content-Type", contentType)
-	buf.WriteTo(response)
+	if req.UploadUrl != "" {
+		fmt.Println("\tPUT", req.UploadUrl)
+		client := &http.Client{}
+		req, _ := http.NewRequest(http.MethodPut, req.UploadUrl, &buf)
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+		response.WriteHeader(resp.StatusCode)
+		io.Copy(response, resp.Body)
+	} else {
+		response.Header().Set("Content-Type", contentType)
+		buf.WriteTo(response)
+	}
 	logOutput(request, "200 OK")
 }
