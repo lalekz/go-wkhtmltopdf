@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"encoding/base64"
 	"fmt"
@@ -41,6 +42,14 @@ func logOutput(request *http.Request, message string) {
 func getEnvInt64(name string, defVal int64) int64 {
 	if valueStr, exists := os.LookupEnv(name); exists {
 		value, _ := strconv.ParseInt(valueStr, 10, 64)
+		return value
+	}
+	return defVal
+}
+
+func getEnvBool(name string, defVal bool) bool {
+	if valueStr, exists := os.LookupEnv(name); exists {
+		value, _ := strconv.ParseBool(valueStr)
 		return value
 	}
 	return defVal
@@ -124,7 +133,10 @@ func requestHandler(response http.ResponseWriter, request *http.Request) {
 	}
 	if req.UploadUrl != "" {
 		fmt.Println("\tPUT", req.UploadUrl)
-		client := &http.Client{}
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: getEnvBool("SSL_SKIP_VERIFY", false)},
+		}
+		client := &http.Client{Transport: tr}
 		req, _ := http.NewRequest(http.MethodPut, req.UploadUrl, &buf)
 		resp, err := client.Do(req)
 		if err != nil {
